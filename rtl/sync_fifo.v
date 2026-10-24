@@ -1,6 +1,8 @@
+
 module sync_fifo #(
     parameter WIDTH = 8,
-    parameter AW    = 4                
+    parameter AW    = 4
+) (
     input              clk,
     input              rst_n,
     input              clr,
@@ -19,7 +21,7 @@ module sync_fifo #(
     reg [AW:0]      rptr;
 
     assign level = wptr - rptr;
-    assign full  = (level == DEPTH[AW:0]);
+    assign full  = (level == DEPTH);
     assign empty = (wptr == rptr);
 
     wire do_push = push && !full;
@@ -44,4 +46,5 @@ module sync_fifo #(
     end
 
     assign rdata = mem[rptr[AW-1:0]];
+
 endmodule

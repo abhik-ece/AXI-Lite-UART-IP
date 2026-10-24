@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AXI-Lite UART Architecture</title>
+<style>
+:root {
+  --bg: #0b1220;
+  --panel: #172840;
+  --border: #47617f;
+  --text: #e8eef8;
+  --muted: #aebed4;
+  --tx: #39d6a2;
+  --rx: #67a9ff;
+  --axi: #c4a7ff;
+  --control: #ffc76b;
+  --status: #ff8fb1;
+  --clock: #8aa0bd;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+header {
+  max-width: 1400px;
+  margin: auto;
+  padding: 24px;
+}
+h1 { margin: 0 0 8px; font-size: 28px; }
+header p { color: var(--muted); line-height: 1.6; }
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  max-width: 1400px;
+  margin: auto;
+  padding: 0 24px 20px;
+}
+button, select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 15px;
+  background: #1b2b43;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+button:hover, select:hover { background: #293e5c; }
+button.active { border-color: var(--tx); }
+.status {
+  color: var(--muted);
+  font-size: 13px;
+  margin-left: auto;
+}
+main {
+  max-width: 1400px;
+  margin: auto;
+  padding: 0 20px 30px;
+}
+.diagram {
+  overflow: hidden;
+  border: 1px solid #263952;
+  border-radius: 16px;
+  background: #0e1829;
+}
+svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.block {
+  fill: var(--panel);
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+.module-box {
+  fill: rgba(23, 40, 64, 0.28);
+  stroke: var(--border);
+  stroke-width: 1.2;
+  stroke-dasharray: 6 5;
+}
+.block-title {
+  fill: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+.block-sub {
+  fill: var(--muted);
+  font-size: 11px;
+  text-anchor: middle;
+}
+.section-title {
+  fill: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+.module-label {
+  fill: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-anchor: middle;
+}
+.wire {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.axi-wire { stroke: var(--axi); }
+.tx-wire { stroke: var(--tx); }
+.rx-wire { stroke: var(--rx); }
+.control-wire {
+  stroke: var(--control);
+  stroke-dasharray: 7 6;
+}
+.status-wire {
+  stroke: var(--status);
+  stroke-dasharray: 7 6;
+}
+.clock-wire {
+  stroke: var(--clock);
+  stroke-width: 2;
+  stroke-dasharray: 2 5;
+}
+.clock-stub {
+  stroke: var(--clock);
+  stroke-width: 2;
+}
+.clock-dot { fill: var(--clock); }
+.wire-label {
+  fill: var(--muted);
+  font-size: 11px;
+  text-anchor: middle;
+}
+.packet {
+  stroke: #ffffff;
+  stroke-width: 1;
+}
+.tx-packet { fill: var(--tx); }
+.rx-packet { fill: var(--rx); }
+.axi-packet { fill: var(--axi); }
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.legend span { display: flex; align-items: center; gap: 8px; }
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+.info {
+  border: 1px solid #263952;
+  border-radius: 12px;
+  padding: 16px;
+  background: #111e31;
+}
+.info h3 { margin: 0 0 8px; font-size: 15px; }
+.info p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+#txInfo h3 { color: var(--tx); }
+#rxInfo h3 { color: var(--rx); }
+#axiInfo h3 { color: var(--axi); }
+#controlInfo h3 { color: var(--control); }
+#statusInfo h3 { color: var(--status); }
+#clockInfo h3 { color: var(--clock); }
+@media (max-width: 650px) {
+  header { padding: 18px; }
+  h1 { font-size: 22px; }
+  main { padding: 0 10px 20px; }
+  .toolbar { padding: 0 12px 16px; }
+  .status { width: 100%; margin-left: 0; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>AXI-Lite UART Architecture</h1>
+  <p>Interactive architecture and dataflow visualization for the AXI-Lite UART RTL design. Every arrow points in the direction the signal actually travels.</p>
+</header>
+
+<div class="toolbar">
+  <button id="playBtn">Play</button>
+  <button id="pauseBtn">Pause</button>
+  <button id="resetBtn">Reset</button>
+  <button id="txBtn">TX Flow</button>
+  <button id="rxBtn">RX Flow</button>
+  <button id="axiBtn">AXI-Lite Flow</button>
+  <button id="allBtn" class="active">All Flows</button>
+  <label for="speed">Speed</label>
+  <select id="speed">
+    <option value="0.5">0.5x</option>
+    <option value="1" selected>1x</option>
+    <option value="2">2x</option>
+    <option value="4">4x</option>
+  </select>
+  <span class="status" id="status">Ready</span>
+</div>
+
+<main>
+<div class="diagram">
+<svg id="architecture" viewBox="0 0 1200 760" role="img" aria-label="AXI-Lite UART architecture and dataflow">
+<defs>
+  <marker id="arrowAxi" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0,0 L8,4 L0,8 Z" fill="#c4a7ff"/>
+  </marker>
+  <marker id="arrowTx" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0,0 L8,4 L0,8 Z" fill="#39d6a2"/>
+  </marker>
+  <marker id="arrowRx" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0,0 L8,4 L0,8 Z" fill="#67a9ff"/>
+  </marker>
+  <marker id="arrowControl" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0,0 L8,4 L0,8 Z" fill="#ffc76b"/>
+  </marker>
+  <marker id="arrowStatus" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0,0 L8,4 L0,8 Z" fill="#ff8fb1"/>
+  </marker>
+  <marker id="arrowClock" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0,0 L8,4 L0,8 Z" fill="#8aa0bd"/>
+  </marker>
+</defs>
+
+<text x="30" y="38" class="section-title">HOST INTERFACE</text>
+<text x="300" y="38" class="section-title">UART CONTROLLER</text>
+<text x="985" y="38" class="section-title">SERIAL INTERFACE</text>
+
+<rect class="block" x="30" y="185" width="190" height="120" rx="14"/>
+<text class="block-title" x="125" y="220">AXI-Lite Host</text>
+<text class="block-sub" x="125" y="245">Master / CPU / Testbench</text>
+<text class="block-sub" x="125" y="265">Sends AW, W, AR - gets B, R</text>
+<text class="block-sub" x="125" y="283">Address and data transactions</text>
+
+<path class="wire axi-wire" marker-end="url(#arrowAxi)" d="M220 225 H300"/>
+<text class="wire-label" x="260" y="212">AW / W / AR</text>
+<path class="wire axi-wire" marker-end="url(#arrowAxi)" d="M300 270 H220"/>
+<text class="wire-label" x="260" y="289">B / R</text>
+
+<rect class="module-box" x="300" y="150" width="230" height="410" rx="16"/>
+<text class="module-label" x="415" y="170">axil_uart_regs.v</text>
+
+<rect class="block" x="315" y="182" width="200" height="128" rx="14"/>
+<text class="block-title" x="415" y="212">Register Interface</text>
+<text class="block-sub" x="415" y="236">AXI4-Lite slave handshake</text>
+<text class="block-sub" x="415" y="254">Address decode, byte strobes</text>
+<text class="block-sub" x="415" y="272">OKAY / SLVERR responses</text>
+
+<rect class="block" x="315" y="400" width="200" height="128" rx="14"/>
+<text class="block-title" x="415" y="430">Control / Status</text>
+<text class="block-sub" x="415" y="454">CTRL, DIV, IRQ_EN</text>
+<text class="block-sub" x="415" y="472">STATUS, LEVEL, IRQ_STATUS</text>
+<text class="block-sub" x="415" y="490">Sticky events (write-1-to-clear)</text>
+
+<path class="wire control-wire" marker-end="url(#arrowControl)" d="M415 355 V310"/>
+<path class="wire control-wire" marker-end="url(#arrowControl)" d="M415 355 V400"/>
+<text class="wire-label" x="478" y="359">config / status</text>
+
+<rect class="block" x="660" y="75" width="225" height="105" rx="14"/>
+<text class="block-title" x="772" y="109">TX FIFO</text>
+<text class="block-sub" x="772" y="133">sync_fifo.v</text>
+<text class="block-sub" x="772" y="151">16 x 8, buffers transmit data</text>
+
+<rect class="block" x="660" y="235" width="225" height="105" rx="14"/>
+<text class="block-title" x="772" y="269">UART TX</text>
+<text class="block-sub" x="772" y="293">uart_tx.v</text>
+<text class="block-sub" x="772" y="311">Parallel-to-serial, parity, stop</text>
+
+<rect class="block" x="980" y="235" width="190" height="105" rx="14"/>
+<text class="block-title" x="1075" y="269">TXD</text>
+<text class="block-sub" x="1075" y="293">Serial output</text>
+<text class="block-sub" x="1075" y="311">UART transmit pin</text>
+
+<path class="wire tx-wire" marker-end="url(#arrowTx)" d="M530 195 H565 V105 H660"/>
+<text class="wire-label" x="612" y="94">push / data</text>
+
+<path class="wire status-wire" marker-end="url(#arrowStatus)" d="M660 150 H590 V225 H530"/>
+<text class="wire-label" x="625" y="143">full / level</text>
+
+<path class="wire tx-wire" marker-end="url(#arrowTx)" d="M735 180 V235"/>
+<text class="wire-label" x="705" y="212">byte</text>
+<path class="wire control-wire" marker-end="url(#arrowControl)" d="M810 235 V180"/>
+<text class="wire-label" x="835" y="212">pop</text>
+
+<path class="wire tx-wire" marker-end="url(#arrowTx)" d="M885 287 H980"/>
+<text class="wire-label" x="945" y="273">Serial bits</text>
+
+<path class="wire control-wire" marker-end="url(#arrowControl)" d="M530 270 H612 V262 H660"/>
+<text class="wire-label" x="570" y="263">config</text>
+<path class="wire status-wire" marker-end="url(#arrowStatus)" d="M660 312 H612 V295 H530"/>
+<text class="wire-label" x="570" y="309">busy / done</text>
+
+<rect class="block" x="980" y="420" width="190" height="105" rx="14"/>
+<text class="block-title" x="1075" y="454">RXD</text>
+<text class="block-sub" x="1075" y="478">Serial input</text>
+<text class="block-sub" x="1075" y="496">UART receive pin</text>
+
+<rect class="block" x="660" y="420" width="225" height="105" rx="14"/>
+<text class="block-title" x="772" y="454">UART RX</text>
+<text class="block-sub" x="772" y="478">uart_rx.v</text>
+<text class="block-sub" x="772" y="496">2-flop sync, mid-bit sampling</text>
+
+<rect class="block" x="660" y="580" width="225" height="105" rx="14"/>
+<text class="block-title" x="772" y="614">RX FIFO</text>
+<text class="block-sub" x="772" y="638">sync_fifo.v</text>
+<text class="block-sub" x="772" y="656">16 x 10, data + parity/framing flags</text>
+
+<path class="wire rx-wire" marker-end="url(#arrowRx)" d="M980 472 H885"/>
+<text class="wire-label" x="945" y="458">Serial bits</text>
+
+<path class="wire rx-wire" marker-end="url(#arrowRx)" d="M735 525 V580"/>
+<text class="wire-label" x="790" y="557">byte + flags</text>
+
+<path class="wire control-wire" marker-end="url(#arrowControl)" d="M530 415 H615 V447 H660"/>
+<text class="wire-label" x="572" y="408">config</text>
+<path class="wire status-wire" marker-end="url(#arrowStatus)" d="M660 497 H585 V440 H530"/>
+<text class="wire-label" x="622" y="489">valid / err</text>
+
+<path class="wire rx-wire" marker-end="url(#arrowRx)" d="M660 610 H640 V510 H530"/>
+<text class="wire-label" x="653" y="560" transform="rotate(-90 653 560)">rdata / level</text>
+
+<path class="wire control-wire" marker-end="url(#arrowControl)" d="M530 530 H625 V655 H660"/>
+<text class="wire-label" x="612" y="598" transform="rotate(-90 612 598)">pop / flush</text>
+
+<rect class="block" x="30" y="405" width="190" height="125" rx="14"/>
+<text class="block-title" x="125" y="440">Clock / Reset</text>
+<text class="block-sub" x="125" y="465">clk</text>
+<text class="block-sub" x="125" y="485">rst_n</text>
+<text class="block-sub" x="125" y="505">Distributed to every block</text>
+
+<path class="wire clock-stub" marker-end="url(#arrowClock)" d="M220 467 H300"/>
+
+<path class="wire clock-wire" d="M125 530 V725 H905 V127"/>
+<text class="wire-label" x="520" y="715">clk / rst_n to every block</text>
+<path class="wire clock-stub" marker-end="url(#arrowClock)" d="M905 127 H885"/>
+<path class="wire clock-stub" marker-end="url(#arrowClock)" d="M905 255 H885"/>
+<path class="wire clock-stub" marker-end="url(#arrowClock)" d="M905 440 H885"/>
+<path class="wire clock-stub" marker-end="url(#arrowClock)" d="M905 632 H885"/>
+<circle class="clock-dot" cx="905" cy="127" r="3.5"/>
+<circle class="clock-dot" cx="905" cy="255" r="3.5"/>
+<circle class="clock-dot" cx="905" cy="440" r="3.5"/>
+<circle class="clock-dot" cx="905" cy="632" r="3.5"/>
+
+<g id="packets">
+  <circle class="packet axi-packet" r="6">
+    <animateMotion id="axiMotion" dur="3s" repeatCount="indefinite" path="M125 225 H220 H300 H415 M415 270 H300 H220 H125"/>
+  </circle>
+  <circle class="packet tx-packet" r="6">
+    <animateMotion id="txMotion" dur="3s" repeatCount="indefinite" path="M415 195 H565 V105 H735 V287 H885 H980 H1075"/>
+  </circle>
+  <circle class="packet rx-packet" r="6">
+    <animateMotion id="rxMotion" dur="3s" repeatCount="indefinite" path="M1075 472 H885 H735 V610 H640 V510 H415"/>
+  </circle>
+</g>
+</svg>
+
+<div class="legend">
+  <span><i class="dot" style="background:var(--axi)"></i> AXI-Lite transactions (request out, response back)</span>
+  <span><i class="dot" style="background:var(--tx)"></i> Transmit dataflow</span>
+  <span><i class="dot" style="background:var(--rx)"></i> Receive dataflow</span>
+  <span><i class="dot" style="background:var(--control)"></i> Control / configuration (registers to blocks)</span>
+  <span><i class="dot" style="background:var(--status)"></i> Status / events (blocks to registers)</span>
+  <span><i class="dot" style="background:var(--clock)"></i> Clock / reset</span>
+</div>
+</div>
+
+<div class="info-grid">
+  <section class="info" id="axiInfo">
+    <h3>AXI-Lite Interface</h3>
+    <p>The host sends AW, W and AR requests to the register block and receives B and R responses back, including SLVERR for bad accesses.</p>
+  </section>
+  <section class="info" id="txInfo">
+    <h3>Transmit Path</h3>
+    <p>Software writes TXDATA, the register block pushes the byte into the TX FIFO, and UART TX pops it and serializes it onto TXD.</p>
+  </section>
+  <section class="info" id="rxInfo">
+    <h3>Receive Path</h3>
+    <p>UART RX synchronizes and samples RXD, then pushes the byte with its parity and framing flags into the RX FIFO. Reading RXDATA pops it.</p>
+  </section>
+  <section class="info" id="controlInfo">
+    <h3>Control</h3>
+    <p>Baud divisor, parity, stop bits and the TX/RX enables flow from the registers to UART TX and UART RX. Flush and pop commands go to the FIFOs.</p>
+  </section>
+  <section class="info" id="statusInfo">
+    <h3>Status and Events</h3>
+    <p>FIFO full and level, busy and done flags, and parity, framing and overrun events flow back into STATUS, LEVEL and IRQ_STATUS.</p>
+  </section>
+  <section class="info" id="clockInfo">
+    <h3>Clock and Reset</h3>
+    <p>One clock and one active-low reset feed every block, so the whole design is a single clock domain.</p>
+  </section>
+</div>
+</main>
+
+<script>
+const txMotion = document.getElementById("txMotion");
+const rxMotion = document.getElementById("rxMotion");
+const axiMotion = document.getElementById("axiMotion");
+const statusText = document.getElementById("status");
+const buttons = [
+  "playBtn", "pauseBtn", "resetBtn", "txBtn",
+  "rxBtn", "axiBtn", "allBtn"
+].map(id => document.getElementById(id));
+
+let activeFlow = "all";
+let playing = true;
+let speed = 1;
+
+function setMotion(motion, enabled) {
+  if (enabled && playing) {
+    motion.setAttribute("dur", (3 / speed) + "s");
+    motion.beginElement();
+  } else {
+    motion.endElement();
+  }
+}
+
+function updateAnimation() {
+  setMotion(txMotion, activeFlow === "all" || activeFlow === "tx");
+  setMotion(rxMotion, activeFlow === "all" || activeFlow === "rx");
+  setMotion(axiMotion, activeFlow === "all" || activeFlow === "axi");
+  statusText.textContent =
+    (playing ? "Playing" : "Paused") +
+    " | Flow: " + activeFlow.toUpperCase() +
+    " | Speed: " + speed + "x";
+  buttons.forEach(button => button.classList.remove("active"));
+  const activeButton = {
+    all: "allBtn",
+    tx: "txBtn",
+    rx: "rxBtn",
+    axi: "axiBtn"
+  }[activeFlow];
+  document.getElementById(activeButton).classList.add("active");
+}
+
+function play() {
+  playing = true;
+  updateAnimation();
+}
+
+function pause() {
+  playing = false;
+  [txMotion, rxMotion, axiMotion].forEach(motion => motion.endElement());
+  updateAnimation();
+}
+
+function reset() {
+  playing = false;
+  [txMotion, rxMotion, axiMotion].forEach(motion => {
+    motion.endElement();
+    motion.setCurrentTime(0);
+  });
+  playing = true;
+  updateAnimation();
+}
+
+document.getElementById("playBtn").addEventListener("click", play);
+document.getElementById("pauseBtn").addEventListener("click", pause);
+document.getElementById("resetBtn").addEventListener("click", reset);
+
+document.getElementById("txBtn").addEventListener("click", () => {
+  activeFlow = "tx";
+  playing = true;
+  updateAnimation();
+});
+
+document.getElementById("rxBtn").addEventListener("click", () => {
+  activeFlow = "rx";
+  playing = true;
+  updateAnimation();
+});
+
+document.getElementById("axiBtn").addEventListener("click", () => {
+  activeFlow = "axi";
+  playing = true;
+  updateAnimation();
+});
+
+document.getElementById("allBtn").addEventListener("click", () => {
+  activeFlow = "all";
+  playing = true;
+  updateAnimation();
+});
+
+document.getElementById("speed").addEventListener("change", event => {
+  speed = Number(event.target.value);
+  updateAnimation();
+});
+
+updateAnimation();
+</script>
+</body>
+</html>

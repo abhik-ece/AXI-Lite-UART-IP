@@ -1,0 +1,18 @@
+# Generic technology-independent synthesis, for area/sanity and gate-level sim.
+# Not a signoff flow - map to your library with `abc -liberty <lib>` for real numbers.
+read_verilog rtl/sync_fifo.v rtl/uart_tx.v rtl/uart_rx.v rtl/axil_uart_regs.v rtl/axil_uart.v
+hierarchy -check -top axil_uart
+proc
+flatten
+opt -full
+memory -nomap
+memory_map
+opt -full
+techmap
+opt -full
+dfflegalize -cell $_DFF_P_ 01 -cell $_DFF_PN0_ 01 -cell $_DFF_PN1_ 01 -cell $_DFFE_PP_ 01 -cell $_DFFE_PN0P_ 01 -cell $_DFFE_PN1P_ 01 -cell $_DFFE_PP0P_ 01
+abc -g AND,NAND,OR,NOR,XOR,XNOR,MUX
+opt_clean -purge
+check -assert
+tee -o synth/out/stat.txt stat
+write_verilog -noattr synth/out/axil_uart_syn.v

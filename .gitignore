@@ -1,15 +1,18 @@
-
+# Simulation outputs
 sim/*.vvp
 sim/*.vcd
 sim/*.fst
+sim/*.log
+
+# Generated synthesis outputs
 synth/out/
+
+# Build outputs
 *.o
 *.out
 *.exe
+
+# Editor and OS files
 .vscode/
 .DS_Store
 Thumbs.db
-axil_uart/sim/*.vvp
-axil_uart/sim/*.vcd
-axil_uart/sim/*.log
-axil_uart/synth/out/
